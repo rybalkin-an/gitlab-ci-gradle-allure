@@ -10,7 +10,9 @@
 stages:
   - build
   - test
-  - report
+  - history_copy # Копирование результата тестов из предыдущего запуска тестов
+  - reports # Генерация отчета
+  - deploy # Публикация отчета на gitlab pages
 
 image: gradle:alpine
 
@@ -42,6 +44,7 @@ build:
 test:
   stage: test
   script: gradle test
+  allow_failure: true
   cache:
     key: "$CI_COMMIT_REF_NAME"
     policy: pull
@@ -52,14 +55,56 @@ test:
     when: always
     expire_in: 24 hours
     paths:
-      - build/allure-results
+      - ./build/allure-results
   
 
-allure:
-  stage: report
-  before_script:
-    - wget https://github.com/allure-framework/allurectl/releases/latest/download/allurectl_linux_386 -O ./allurectl && chmod +x ./allurectl
-    - ./allurectl job-run plan --output-file ${ALLURE_TESTPLAN_PATH}
-  script:
-    - ./allurectl watch -- ./gradlew clean test
+history_job:
+  stage: history_copy
 
+  image: storytel/alpine-bash-curl
+
+  script:
+    - 'curl --location --output artifacts.zip "https://https://gitlab.com/rybalkin-an/api/v4/projects/learning-ci/jobs/artifacts/master/download?job=pages&job_token=$CI_JOB_TOKEN"'  # С помощью api гитлаба скачиваем файлы из job, который будет указан ниже. Обратите внимание на текст на русском в ссылке. Очень важно указать вместо текста и скобок номер вашего репозиториия
+    - apk add unzip # Образ, используемый в этом шаге по умолчанию не имеет утилиты unzip, по этой причине мы добавляем её в контейнер 
+    - unzip artifacts.zip # Распаковываем файлы
+    - chmod -R 777 public # Даем права любые манипуляции с содержимым
+    - cp -r ./public/history ./build/allure-results # Копируем историю в папку с результатами теста
+
+  allow_failure: true # Так как при первом запуске пайплайна истории нет, это позволит нам избежать падения пайплайна. В дальнейшем эту строчку можно спокойно удалить.
+
+  artifacts: 
+    paths:
+      - .build/allure-results # Сохраняем данные
+    expire_in: 1 day
+  rules:
+    - when: always # Сохранять всегда
+
+allure_job: # Название job
+  stage: reports # Третий stage, который будет выполнен
+
+  image: frankescobar/allure-docker-service # Указываем раннеру использовать образ с allure. В нем мы будем генерировать отчет.
+
+  script:
+     - allure generate -c ./allure-results -o ./allure-report # Генерируем отчет из ./allure-results внутрь папки ./allure-report
+
+  artifacts:
+    paths:
+      - .build/allure-results # Примонтируем две этих директории для получения результатов тестирования и генерации отчетов соответственно
+      - ./allure-report
+    expire_in: 1 day
+  rules:
+    - when: always  
+
+pages: # Названием этой job говорим гитлабу, чтобы захостил результат у себя в pages
+
+  stage: deploy # Четвертый stage, который будет выполнен
+
+  script:
+    - mkdir public # Создаем папку public. По умолчанию гитлаб хостит в gitlab pages только из папки public
+    - mv ./allure-report/* public # Перемещаем в папку public сгенерированный отчет.
+
+  artifacts:
+    paths:
+      - public
+  rules:
+    - when: always      
