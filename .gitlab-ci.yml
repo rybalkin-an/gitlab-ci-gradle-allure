@@ -7,6 +7,10 @@
 # This is the Gradle build system for JVM applications
 # https://gradle.org/
 # https://github.com/gradle/gradle
+stages:
+  - build
+  - test
+  - report
 
 image: gradle:alpine
 
@@ -40,3 +44,45 @@ test:
     paths:
       - build
       - .gradle
+  artifacts:
+    when: always
+    expire_in: 24 hours
+    paths:
+      - build/allure-results
+
+allure:
+  stage: report
+  script:
+    - git clone --single-branch --branch gl-pages $CI_PROJECT_URL
+
+    - JOB_ID=$(cat jobid)
+    - REPORT=job_${JOB_ID}
+    - CURRENT_BRANCH=${CI_PROJECT_NAME}/public/${CI_COMMIT_REF_NAME}
+    - cp -r ./${CURRENT_BRANCH}/history allure-results || echo "No history"
+
+    #echo "executor.json"
+    - echo '{"name":"GitLabCI","type":"gitlab","reportName":"Allure Report with history",' > executor.json
+    - echo "\"reportUrl\":\"${CI_PAGES_URL}/${CI_COMMIT_REF_NAME}/${REPORT}/\"," >> executor.json
+    - echo "\"buildUrl\":\"${CI_PIPELINE_URL}\"," >> executor.json
+    - echo "\"buildName\":\"GitLab Job Run ${JOB_ID}\",\"buildOrder\":\"${JOB_ID}\"}" >> executor.json
+    #cat executor.json
+    - mv ./executor.json .build/allure-results
+
+    - allure generate allure-results -o $REPORT
+
+    - mkdir -p $CURRENT_BRANCH
+    - cp -r $REPORT $CURRENT_BRANCH
+    - cp -r ${REPORT}/history $CURRENT_BRANCH
+    - cp -r generate_index.py $CI_PROJECT_NAME
+    - cd $CI_PROJECT_NAME
+    - python3 generate_index.py public
+    - python3 generate_index.py public/${CI_COMMIT_REF_NAME}
+
+    - git config user.name "Gitlab Runner"
+    - git config user.email ${CI_EMAIL}
+    - >
+      git remote add $CI_PROJECT_NAME 
+      https://oauth2:${ALLURE_GITLAB_PAGES}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git
+    - git add ./public
+    - git commit -m "pipeline_${CI_PIPELINE_ID}_job_${CI_JOB_ID}"
+    - git push -u $CI_PROJECT_NAME
