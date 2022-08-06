@@ -61,10 +61,10 @@ history_job:
       - ./build/allure-results # Сохраняем данные
     expire_in: 1 day
   rules:
-    - when: always # Сохранять всегда
+    - when: always
 
-allure_job: # Название job
-  stage: reports # Третий stage, который будет выполнен
+allure_job:
+  stage: reports
 
   image: frankescobar/allure-docker-service # Указываем раннеру использовать образ с allure. В нем мы будем генерировать отчет.
 
@@ -79,9 +79,9 @@ allure_job: # Название job
   rules:
     - when: always  
 
-pages: # Названием этой job говорим гитлабу, чтобы захостил результат у себя в pages
+pages:
 
-  stage: deploy # Четвертый stage, который будет выполнен
+  stage: deploy
 
   script:
     - mkdir public # Создаем папку public. По умолчанию гитлаб хостит в gitlab pages только из папки public
