@@ -48,8 +48,7 @@ test:
     when: always
     expire_in: 24 hours
     paths:
-      - allure-results
-      - jobid
+      - build/allure-results
 
 allure:
   stage: report
