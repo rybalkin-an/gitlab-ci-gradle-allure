@@ -20,6 +20,10 @@ image: gradle:alpine
 # isolated from any previous builds.
 variables:
   GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+  ALLURE_LAUNCH_NAME: "${CI_PROJECT_NAME} - ${CI_COMMIT_SHORT_SHA}"
+  ALLURE_LAUNCH_TAGS: "regular, ${CI_COMMIT_REF_NAME}"
+  ALLURE_TESTPLAN_PATH: "${CI_PROJECT_DIR}/testplan.json"
+  ALLURE_RESULTS: "allure-results"
 
 before_script:
   - GRADLE_USER_HOME="$(pwd)/.gradle"
@@ -49,40 +53,13 @@ test:
     expire_in: 24 hours
     paths:
       - build/allure-results
+  
 
 allure:
   stage: report
+  before_script:
+    - wget https://github.com/allure-framework/allurectl/releases/latest/download/allurectl_linux_386 -O ./allurectl && chmod +x ./allurectl
+    - ./allurectl job-run plan --output-file ${ALLURE_TESTPLAN_PATH}
   script:
-    - git clone --single-branch --branch gl-pages $CI_PROJECT_URL
+    - ./allurectl watch -- ./gradlew clean test
 
-    - JOB_ID=$(cat jobid)
-    - REPORT=job_${JOB_ID}
-    - CURRENT_BRANCH=${CI_PROJECT_NAME}/public/${CI_COMMIT_REF_NAME}
-    - cp -r ./${CURRENT_BRANCH}/history allure-results || echo "No history"
-
-    #echo "executor.json"
-    - echo '{"name":"GitLabCI","type":"gitlab","reportName":"Allure Report with history",' > executor.json
-    - echo "\"reportUrl\":\"${CI_PAGES_URL}/${CI_COMMIT_REF_NAME}/${REPORT}/\"," >> executor.json
-    - echo "\"buildUrl\":\"${CI_PIPELINE_URL}\"," >> executor.json
-    - echo "\"buildName\":\"GitLab Job Run ${JOB_ID}\",\"buildOrder\":\"${JOB_ID}\"}" >> executor.json
-    #cat executor.json
-    - mv ./executor.json .build/allure-results
-
-    - allure generate allure-results -o $REPORT
-
-    - mkdir -p $CURRENT_BRANCH
-    - cp -r $REPORT $CURRENT_BRANCH
-    - cp -r ${REPORT}/history $CURRENT_BRANCH
-    - cp -r generate_index.py $CI_PROJECT_NAME
-    - cd $CI_PROJECT_NAME
-    - python3 generate_index.py public
-    - python3 generate_index.py public/${CI_COMMIT_REF_NAME}
-
-    - git config user.name "Gitlab Runner"
-    - git config user.email ${CI_EMAIL}
-    - >
-      git remote add $CI_PROJECT_NAME 
-      https://oauth2:${ALLURE_GITLAB_PAGES}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git
-    - git add ./public
-    - git commit -m "pipeline_${CI_PIPELINE_ID}_job_${CI_JOB_ID}"
-    - git push -u $CI_PROJECT_NAME
