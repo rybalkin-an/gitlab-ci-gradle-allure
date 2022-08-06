@@ -42,7 +42,7 @@ test:
     when: always
     expire_in: 24 hours
     paths:
-      - ./build/allure-results
+      - ./allure-results
   
 
 history_job:
@@ -55,13 +55,13 @@ history_job:
     - apk add unzip # Образ, используемый в этом шаге по умолчанию не имеет утилиты unzip, по этой причине мы добавляем её в контейнер 
     - unzip artifacts.zip # Распаковываем файлы
     - chmod -R 777 public # Даем права любые манипуляции с содержимым
-    - cp -r ./public/history ./build/allure-results # Копируем историю в папку с результатами теста
+    - cp -r ./public/history ./allure-results # Копируем историю в папку с результатами теста
 
   allow_failure: true # Так как при первом запуске пайплайна истории нет, это позволит нам избежать падения пайплайна. В дальнейшем эту строчку можно спокойно удалить.
 
   artifacts: 
     paths:
-      - .build/allure-results # Сохраняем данные
+      - ./allure-results # Сохраняем данные
     expire_in: 1 day
   rules:
     - when: always # Сохранять всегда
@@ -72,11 +72,11 @@ allure_job: # Название job
   image: frankescobar/allure-docker-service # Указываем раннеру использовать образ с allure. В нем мы будем генерировать отчет.
 
   script:
-     - allure generate -c .build/allure-results -o ./allure-report # Генерируем отчет из ./allure-results внутрь папки ./allure-report
+     - allure generate -c ./allure-results -o ./allure-report # Генерируем отчет из ./allure-results внутрь папки ./allure-report
 
   artifacts:
     paths:
-      - .build/allure-results # Примонтируем две этих директории для получения результатов тестирования и генерации отчетов соответственно
+      - ./allure-results # Примонтируем две этих директории для получения результатов тестирования и генерации отчетов соответственно
       - ./allure-report
     expire_in: 1 day
   rules:
