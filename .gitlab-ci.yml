@@ -1,7 +1,6 @@
 stages:
   - build
   - test
-  - history_copy # Копирование результата тестов из предыдущего запуска тестов
   - reports # Генерация отчета
   - deploy # Публикация отчета на gitlab pages
 
