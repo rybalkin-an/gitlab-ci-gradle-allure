@@ -41,12 +41,9 @@ test:
 
 report:
   stage: reports
-
   image: frankescobar/allure-docker-service # Указываем раннеру использовать образ с allure. В нем мы будем генерировать отчет.
-
   script:
      - allure generate -c ./build/allure-results -o ./build/allure-report # Генерируем отчет из ./build/allure-results внутрь папки ./allure-report
-
   artifacts:
     paths:
       - ./build/allure-results # Примонтируем две этих директории для получения результатов тестирования и генерации отчетов соответственно
@@ -56,13 +53,10 @@ report:
     - when: always  
 
 pages:
-
   stage: deploy
-
   script:
     - mkdir public # Создаем папку public. По умолчанию гитлаб хостит в gitlab pages только из папки public
     - mv ./build/allure-report/* public # Перемещаем в папку public сгенерированный отчет.
-
   artifacts:
     paths:
       - public
